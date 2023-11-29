@@ -33,6 +33,7 @@ If a URL of the form `http://192.168.0.1:<PORT>/local-nhanes/foo/bar.html` is re
 
 ```r
 require(BiocFileCache)
+require(httpuv)
 source("R/setup-cache.R")
 source("R/setup-server.R")
 

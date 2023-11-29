@@ -29,59 +29,46 @@
 }
 
 
-serveURL <- function(s)
+serveURL <- function(s, verbose = getOption("verbose"))
 {
     ## s looks like /<key>/suffix
     ssplit <- strsplit(s, split = "/", fixed = TRUE)[[1]]
     key <- ssplit[[2]]
     suffix <- paste(tail(ssplit, -2), collapse = "/")
     map <- .cachehttpMaps[[key]]
-    h <- map$fun(suffix) # whether to cache
+    doCache <- map$fun(suffix) # whether to cache
     remoteURL <- paste0(map$value, "/", suffix)
-    str(list(key = key, suffix = suffix, h = h, remoteURL = remoteURL))
-    if (h) {
-        ## do caching
+    if (verbose) str(list(key = key, suffix = suffix, cache = doCache, remoteURL = remoteURL))
 
-        localFile <- basename(.wrapURL(remoteURL))
-        cat(sprintf("cache: %s -> %s\n", suffix, localFile))
-        ## redirectTarget <- paste0("/cache/", localFile)
-        redirectTarget <- paste0("http://127.0.0.1:8080/cache/", localFile)
+    if (doCache) {
+        localFile <- .wrapURL(remoteURL)
+        if (verbose) cat(sprintf("cache: %s -> %s\n", suffix, basename(localFile)))
 
-        ## Attempt at HTTP redirect, but this doesn't work
-###        if (FALSE)
-        return(
-            list(status = 301L,
-                 headers = list('Content-Type' = .contentType(suffix),
-                                'Location' = redirectTarget),
-                 body = '')
-        )
-
-        ## Use HTML redirect instead. This works in a browser, but
-        ## unfortuntely not in download.file(). We may have better
-        ## luck with HTTP redirects if we can figure out how to do it.
-        if (FALSE)
-            list(status = 200L,
-                 headers = list('Content-Type' = 'text/html'),
-                 body = sprintf("<head><meta http-equiv='Refresh' content='0; URL=%s' /></head>",
-                                redirectTarget))
-
-        ## Very bad solution (esp for xpt files): return body as
-        ## character string - what happens if there are NUL
-        ## characters?
-
+        ## It is not immediately clear from httpuv docs or README that
+        ## the following should work, but the docs refer to the rook
+        ## specification
+        ##
+        ## https://github.com/jeffreyhorner/Rook/blob/a5e45f751/README.md
+        ## 
+        ## which says that if body = c(file = localFile), content will
+        ## be served from the file. From the code, it appears that
+        ## body = list(file = localFile, owned = TRUE | FALSE) should
+        ## also work (not sure what owned is, but defaults to FALSE)
+  
         list(status = 200L,
              headers = list('Content-Type' = .contentType(suffix)),
-             body = '')
-        
-
+             body = c(file = localFile))
     }
-    else { # redirect (FIXME: use http temporary redirect instead)
+    else { # redirect
+        ## FIXME: use http temporary redirect with 'Location' header instead) - but check that download.file() works
+        ## FIXME: query parameters are not handled - TODO
         list(status = 200L,
              headers = list('Content-Type' = 'text/html'),
              body = sprintf("<head><meta http-equiv='Refresh' content='0; URL=%s' /></head>",
                             remoteURL))
     }
 }
+
 
 ## See https://github.com/rstudio/httpuv#readme
 
