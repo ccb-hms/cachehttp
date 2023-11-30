@@ -1,6 +1,6 @@
 # cachehttp: Caching of web resources
 
-An R package that would enable transparent caching of HTTP resources:
+An R package to enable transparent caching of HTTP resources:
 
 This package uses the
 [httpuv](https://github.com/rstudio/httpuv/#readme) package to serve
