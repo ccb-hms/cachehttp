@@ -62,7 +62,7 @@ s <- start_cache(host = "0.0.0.0", port = 8080,
 Browsing files seem to be OK.
 
 ```r
-## should bypass cache and redirect to CDC - but query parameters not handled [TODO]
+## should bypass cache and redirect to CDC
 browseURL("http://127.0.0.1:8080/cdc/nchs/nhanes/search/datapage.aspx?Component=Demographics")
 
 ## create cached files explicitly (for testing, will be done automatically during regular use)
