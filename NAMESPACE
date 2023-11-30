@@ -1,0 +1,7 @@
+
+importFrom(httpuv, startServer, staticPath)
+importFrom(BiocFileCache, BiocFileCache, bfcrpath)
+importFrom(tools, file_ext)
+importFrom(utils, str, tail)
+
+export(add_cache, start_cache)

@@ -1,91 +1,97 @@
-# RFC: Caching of web resources
+# cachehttp: Caching of web resources
 
-Proposal for an R package that would enable transparent caching of HTTP resources:
+An R package that would enable transparent caching of HTTP resources:
 
-The main idea is to use the httpuv package (or something similar) to serve files from a 'local' address such as
-`http://192.168.0.1:<PORT>/` that would use BiocFileCache internally.
+This package uses the
+[httpuv](https://github.com/rstudio/httpuv/#readme) package to serve
+files from a 'local' address such as `http://127.0.0.1:<PORT>/` that
+would use essentially redirect to an external host, but use the
+[BiocFileCache](https://bioconductor.org/packages/release/bioc/html/BiocFileCache.html)
+package internally to cache downloaded files.
 
-Users would specify a mapping as follows, say:
+Users can specify a mapping as follows:
 
-```
-cacheMap(key = "local-nhanes", value = "https://wwwn.cdc.gov/nchs/nhanes",
-         fun = function(x) {
-             x <- tolower(x)
-             endsWith(x, "htm") || endsWith(x, "xpt")
-         })
+```r
+add_cache(key = "cdc", value = "https://wwwn.cdc.gov",
+          fun = function(x) {
+          x <- tolower(x)
+              endsWith(x, "htm") || endsWith(x, "xpt")
+          })
 ```
 
 The server's algorithm would be as follows:
 
-If a URL of the form `http://192.168.0.1:<PORT>/local-nhanes/foo/bar.html` is requested, it will 
+If a URL of the form `http://192.168.0.1:<PORT>/cdc/foo/bar.html` is requested, it will 
 
-- check if first part (`local-nhanes`) matches an existing key (otherwise error)
+- check if first part (`cdc`) matches an existing key (otherwise error)
 
-- call `fun("foo/bar.html")` to determine if the file should be cached (the default, if `fun = NULL`, is `TRUE`). This is to ensure we can skip special URLs which are doing searches or something similar. Otherwise go to the non-caching branch.
+- call `fun("foo/bar.html")` to determine if the file should be cached
+  (the default, if `fun = NULL`, is `TRUE`). This is to ensure we can
+  skip special URLs which are doing searches or something
+  similar. Otherwise go to the non-caching branch.
 
-- If caching, use BiocFileCache() to cache `<value>/foo/bar.html`, and serve the downloaded file
+- If caching, use `BiocFileCache()` to cache `<value>/foo/bar.html`, and serve the downloaded file
 
-- If not caching, download the file in a temporary location and serve
+- If not caching, either redirect (this seems to have some issues with
+  `download.file()` which need to be investigated further) or download
+  the file in a temporary location and serve.
 
+
+
+## Install
+
+```r
+remotes::install_github("ccb-hms/cachehttp")
+```
 
 ## Test
 
 
 ```r
-require(BiocFileCache)
-require(httpuv)
-source("R/setup-cache.R")
-source("R/setup-server.R")
+require(cachehttp)
 
-cacheMap("nhanes", "https://wwwn.cdc.gov/nchs/nhanes",
-         fun = function(x) {
-             x <- tolower(x)
-             endsWith(x, ".htm") || endsWith(x, ".xpt")
-         })
+add_cache("cdc", "https://wwwn.cdc.gov",
+          fun = function(x) {
+              x <- tolower(x)
+              endsWith(x, ".htm") || endsWith(x, ".xpt")
+          })
 
-s <- setupServer(host = "0.0.0.0", port = 8080, static_path = bfccache(BiocFileCache()))
+s <- start_cache(host = "0.0.0.0", port = 8080,
+                 static_path = BiocFileCache::bfccache(BiocFileCache::BiocFileCache()))
 ```
 
 Browsing files seem to be OK.
 
 ```r
 ## should bypass cache and redirect to CDC - but query parameters not handled [TODO]
-browseURL("http://127.0.0.1:8080/nhanes/search/datapage.aspx?Component=Demographics")
+browseURL("http://127.0.0.1:8080/cdc/nchs/nhanes/search/datapage.aspx?Component=Demographics")
 
-## create cached files explicitly (for testing, not needed in regular use)
-.wrapURL("https://wwwn.cdc.gov/nchs/nhanes/2007-2008/POOLTF_E.htm")
-.wrapURL("https://wwwn.cdc.gov/nchs/nhanes/2007-2008/POOLTF_E.xpt")
+## create cached files explicitly (for testing, will be done automatically during regular use)
+cachehttp:::.wrapURL("https://wwwn.cdc.gov/nchs/nhanes/2007-2008/POOLTF_E.htm")
+cachehttp:::.wrapURL("https://wwwn.cdc.gov/nchs/nhanes/2007-2008/POOLTF_E.xpt")
 
-## Check that cache URL paths are served as expected 
+## Check that cache URL paths are served as expected [check name in
+## putput above and change if needed]
 browseURL("http://127.0.0.1:8080/cache/9e5d38d7a4ed_POOLTF_E.htm")
 
 ## Finally, the URLs that we are interested in should get redirected to cache URLs
-browseURL("http://127.0.0.1:8080/nhanes/2007-2008/POOLTF_E.htm")
+browseURL("http://127.0.0.1:8080/cdc/nchs/nhanes/2007-2008/POOLTF_E.htm")
 ```
 
-Unfortunately, `download.file()` seems to have trouble (direct `wget` is fine)
+Check that `download.file()` works (it has trouble following
+redirects). But _note_ that this has to be run from a _different_
+session.
 
 ```r
 xpt_path <- "~/out.xpt"
-download.file("http://127.0.0.1:8080/cache/9e5d558ce0c2_POOLTF_E.xpt", destfile = xpt_path) ## OK
-browseURL("http://127.0.0.1:8080/nhanes/2007-2008/POOLTF_E.xpt") ## OK
-
-## doesn't work [because download.file() cannot follow redirects? docs suggest it should]
-download.file("http://127.0.0.1:8080/nhanes/2007-2008/POOLTF_E.xpt", destfile = xpt_path) ## ?
-
-download.file("http://127.0.0.1:8080/nhanes/search/datapage.aspx?Component=Demographics",
+download.file("http://127.0.0.1:8080/cdc/nchs/nhanes/2007-2008/POOLTF_E.xpt",
               destfile = xpt_path)
 ```
 
-For debugging:
+## Debugging
+
+To see debugging messages, set
 
 ```r
-serveURL("/nhanes/2007-2008/POOLTF_E.htm")
-serveURL("/nhanes/2007-2008/POOLTF_E.xpt")
+options(verbose = TRUE)
 ```
-
-Things I have tried so far:
-
-- header tags: `Location` and `Content-Location`
-
-- status codes: 301, 307, 308

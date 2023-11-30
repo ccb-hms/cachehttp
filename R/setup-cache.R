@@ -27,7 +27,7 @@
 .cachehttpMaps <- new.env(parent = emptyenv())
 
 
-cacheMap <- function(key, value, fun = NULL, warn = TRUE)
+add_cache <- function(key, value, fun = NULL, warn = TRUE)
 {
     if (is.null(fun)) fun <- function(x) TRUE
     stopifnot(is.character(key), is.character(value), is.function(fun))
