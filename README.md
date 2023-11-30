@@ -1,11 +1,11 @@
 # cachehttp: Caching of web resources
 
-An R package to enable transparent caching of HTTP resources:
+An R package to enable transparent caching of HTTP resources.
 
 This package uses the
 [httpuv](https://github.com/rstudio/httpuv/#readme) package to serve
 files from a 'local' address such as `http://127.0.0.1:<PORT>/` that
-would use essentially redirect to an external host, but use the
+essentially redirects to an external host, but uses the
 [BiocFileCache](https://bioconductor.org/packages/release/bioc/html/BiocFileCache.html)
 package internally to cache downloaded files.
 
@@ -19,23 +19,23 @@ add_cache(key = "cdc", value = "https://wwwn.cdc.gov",
           })
 ```
 
-The server's algorithm would be as follows:
+The server then works as follows:
 
 If a URL of the form `http://192.168.0.1:<PORT>/cdc/foo/bar.html` is requested, it will 
 
-- check if first part (`cdc`) matches an existing key (otherwise error)
+- check if first part (`cdc`) matches an existing key (otherwise return an error page)
 
-- call `fun("foo/bar.html")` to determine if the file should be cached
-  (the default, if `fun = NULL`, is `TRUE`). This is to ensure we can
-  skip special URLs which are doing searches or something
-  similar. Otherwise go to the non-caching branch.
+- call corresponding `fun("foo/bar.html")` to determine if the file
+  should be cached (the default, if `fun = NULL`, is `TRUE`). This is
+  to ensure we can skip special URLs such as ones that have query
+  parameters. Otherwise go to the non-caching branch.
 
-- If caching, use `BiocFileCache()` to cache `<value>/foo/bar.html`, and serve the downloaded file
+- If caching, use `BiocFileCache()` to cache `<value>/foo/bar.html`,
+  and serve the downloaded file.
 
 - If not caching, either redirect (this seems to have some issues with
   `download.file()` which need to be investigated further) or download
-  the file in a temporary location and serve.
-
+  the result in a temporary location and serve.
 
 
 ## Install
@@ -44,8 +44,7 @@ If a URL of the form `http://192.168.0.1:<PORT>/cdc/foo/bar.html` is requested, 
 remotes::install_github("ccb-hms/cachehttp")
 ```
 
-## Test
-
+## Usage
 
 ```r
 require(cachehttp)
